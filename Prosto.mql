@@ -1,116 +1,103 @@
 //+------------------------------------------------------------------+
-//|                                            Custom Indicator.mq4 |
-//|                        Copyright 2021, MetaQuotes Software Corp. |
-//|                                             https://www.mql5.com |
+//|                                            Indicator_AlphaLines.mq4|
+//|                                      Copyright © 2021, John Doe   |
+//|                                             https://www.example.com|
 //+------------------------------------------------------------------+
-#property copyright "Copyright 2021, MetaQuotes Software Corp."
-#property link      "https://www.mql5.com"
-#property version   "1.00"
 #property indicator_chart_window
+#property indicator_buffers 2
+#property indicator_color1 LimeGreen
+#property indicator_color2 Red
 
-//--- input parameters
-input string LineA_Name = "Line A";
-input string LineB_Name = "Line B";
-input string LineC_Name = "Line C";
-input int LineB_Distance = 10;
-input int LineC_Distance = 10;
+// Input parameters
+input string AlphaLineName = "Alpha Line";
+input string IndicatorLine1Name = "Indicator Line 1";
+input string IndicatorLine2Name = "Indicator Line 2";
+input int IndicatorDistance = 30;
+input int DelayTime = 60;
 
-//--- indicator buffers
-double LineB_Buffer[];
-double LineC_Buffer[];
+// Indicator buffers
+double IndicatorLine1Buffer[];
+double IndicatorLine2Buffer[];
 
-//--- handle to Line A object
-int LineA_Handle = 0;
+// Global variables
+datetime LastUpdateTime = 0;
+double AlphaLinePrice = 0;
+double IndicatorLine1Price = 0;
+double IndicatorLine2Price = 0;
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
-int OnInit()
+int init()
 {
-   //--- create Line B and Line C objects
-   ObjectCreate(0, LineB_Name, OBJ_HLINE, 0, 0, 0);
-   ObjectCreate(0, LineC_Name, OBJ_HLINE, 0, 0, 0);
-   
-   //--- set Line B and Line C properties
-   ObjectSet(0, LineB_Name, OBJPROP_COLOR, clrRed);
-   ObjectSet(0, LineC_Name, OBJPROP_COLOR, clrGreen);
-   
-   //--- set Line B and Line C buffers
-   SetIndexBuffer(0, LineB_Buffer);
-   SetIndexBuffer(1, LineC_Buffer);
-   
-   //--- set indicator label
-   IndicatorSetString(INDICATOR_SHORTNAME, "Custom Indicator");
-   
-   return(INIT_SUCCEEDED);
+    // Set buffer arrays
+    SetIndexBuffer(0, IndicatorLine1Buffer);
+    SetIndexBuffer(1, IndicatorLine2Buffer);
+
+    // Set indicator labels
+    IndicatorShortName("Alpha Lines");
+    IndicatorDigits(Digits);
+
+    return(INIT_SUCCEEDED);
 }
 
 //+------------------------------------------------------------------+
 //| Custom indicator deinitialization function                       |
 //+------------------------------------------------------------------+
-void OnDeinit(const int reason)
+int deinit()
 {
-   //--- delete Line B and Line C objects
-   ObjectDelete(0, LineB_Name);
-   ObjectDelete(0, LineC_Name);
+    // Remove indicator buffers
+    IndicatorBuffers(0);
+
+    return(0);
 }
 
 //+------------------------------------------------------------------+
 //| Custom indicator iteration function                              |
 //+------------------------------------------------------------------+
-int OnCalculate(const int rates_total,
-                const int prev_calculated,
-                const datetime &time[],
-                const double &open[],
-                const double &high[],
-                const double &low[],
-                const double &close[],
-                const long &tick_volume[],
-                const long &volume[],
-                const int &spread[])
+int start()
 {
-   //--- check if Line A object exists
-   if(ObjectFind(0, LineA_Name) == -1)
-   {
-      //--- delete Line B and Line C objects
-      ObjectDelete(0, LineB_Name);
-      ObjectDelete(0, LineC_Name);
-      
-      //--- reset Line B and Line C buffers
-      ArrayInitialize(LineB_Buffer, 0);
-      ArrayInitialize(LineC_Buffer, 0);
-      
-      //--- reset Line A handle
-      LineA_Handle = 0;
-      
-      return(rates_total);
-   }
-   
-   //--- get Line A handle
-   if(LineA_Handle == 0)
-      LineA_Handle = ObjectFind(0, LineA_Name);
-   
-   //--- get Line A price
-   double LineA_Price = ObjectGetDouble(0, LineA_Handle, OBJPROP_PRICE1);
-   
-   //--- calculate Line B and Line C prices
-   double LineB_Price = LineA_Price + LineB_Distance * Point;
-   double LineC_Price = LineA_Price - LineC_Distance * Point;
-   
-   //--- set Line B and Line C properties
-   ObjectSetDouble(0, LineB_Name, OBJPROP_PRICE1, LineB_Price);
-   ObjectSetDouble(0, LineC_Name, OBJPROP_PRICE1, LineC_Price);
-   
-   //--- set Line B and Line C buffers
-   ArrayInitialize(LineB_Buffer, 0);
-   ArrayInitialize(LineC_Buffer, 0);
-   for(int i = 0; i < rates_total; i++)
-   {
-      if(high[i] >= LineB_Price)
-         LineB_Buffer[i] = LineB_Price;
-      if(low[i] <= LineC_Price)
-         LineC_Buffer[i] = LineC_Price;
-   }
-   
-   return(rates_total);
+    // Get Alpha Line object
+    int AlphaLine = ObjectFind(0, AlphaLineName);
+
+    // Check if Alpha Line exists
+    if(AlphaLine != -1)
+    {
+        // Get Alpha Line price
+        AlphaLinePrice = ObjectGetDouble(0, AlphaLineName, OBJ_PRICE1);
+
+        // Check if last update time is greater than delay time
+        if(LastUpdateTime + DelayTime * 1000 < TimeCurrent())
+        {
+            // Calculate Indicator Line prices
+            IndicatorLine1Price = NormalizeDouble(Ask + IndicatorDistance * Point, Digits);
+            IndicatorLine2Price = NormalizeDouble(Bid - IndicatorDistance * Point, Digits);
+
+            // Set Indicator Line objects
+            ObjectCreate(0, IndicatorLine1Name, OBJ_HLINE, 0, 0, IndicatorLine1Price);
+            ObjectCreate(0, IndicatorLine2Name, OBJ_HLINE, 0, 0, IndicatorLine2Price);
+
+            // Set Indicator Line buffer values
+            IndicatorLine1Buffer[0] = IndicatorLine1Price;
+            IndicatorLine2Buffer[0] = IndicatorLine2Price;
+
+            // Update last update time
+            LastUpdateTime = TimeCurrent();
+        }
+    }
+    else
+    {
+        // Remove Indicator Line objects
+        ObjectDelete(0, IndicatorLine1Name);
+        ObjectDelete(0, IndicatorLine2Name);
+
+        // Reset Indicator Line buffer values
+        IndicatorLine1Buffer[0] = 0;
+        IndicatorLine2Buffer[0] = 0;
+
+        // Reset last update time
+        LastUpdateTime = 0;
+    }
+
+    return(0);
 }
