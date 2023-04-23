@@ -1,0 +1,116 @@
+//+------------------------------------------------------------------+
+//|                                            Custom Indicator.mq4 |
+//|                        Copyright 2021, MetaQuotes Software Corp. |
+//|                                             https://www.mql5.com |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2021, MetaQuotes Software Corp."
+#property link      "https://www.mql5.com"
+#property version   "1.00"
+#property indicator_chart_window
+
+//--- input parameters
+input string LineA_Name = "Line A";
+input string LineB_Name = "Line B";
+input string LineC_Name = "Line C";
+input int LineB_Distance = 10;
+input int LineC_Distance = 10;
+
+//--- indicator buffers
+double LineB_Buffer[];
+double LineC_Buffer[];
+
+//--- handle to Line A object
+int LineA_Handle = 0;
+
+//+------------------------------------------------------------------+
+//| Custom indicator initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   //--- create Line B and Line C objects
+   ObjectCreate(0, LineB_Name, OBJ_HLINE, 0, 0, 0);
+   ObjectCreate(0, LineC_Name, OBJ_HLINE, 0, 0, 0);
+   
+   //--- set Line B and Line C properties
+   ObjectSet(0, LineB_Name, OBJPROP_COLOR, clrRed);
+   ObjectSet(0, LineC_Name, OBJPROP_COLOR, clrGreen);
+   
+   //--- set Line B and Line C buffers
+   SetIndexBuffer(0, LineB_Buffer);
+   SetIndexBuffer(1, LineC_Buffer);
+   
+   //--- set indicator label
+   IndicatorSetString(INDICATOR_SHORTNAME, "Custom Indicator");
+   
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator deinitialization function                       |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+   //--- delete Line B and Line C objects
+   ObjectDelete(0, LineB_Name);
+   ObjectDelete(0, LineC_Name);
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator iteration function                              |
+//+------------------------------------------------------------------+
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[],
+                const long &tick_volume[],
+                const long &volume[],
+                const int &spread[])
+{
+   //--- check if Line A object exists
+   if(ObjectFind(0, LineA_Name) == -1)
+   {
+      //--- delete Line B and Line C objects
+      ObjectDelete(0, LineB_Name);
+      ObjectDelete(0, LineC_Name);
+      
+      //--- reset Line B and Line C buffers
+      ArrayInitialize(LineB_Buffer, 0);
+      ArrayInitialize(LineC_Buffer, 0);
+      
+      //--- reset Line A handle
+      LineA_Handle = 0;
+      
+      return(rates_total);
+   }
+   
+   //--- get Line A handle
+   if(LineA_Handle == 0)
+      LineA_Handle = ObjectFind(0, LineA_Name);
+   
+   //--- get Line A price
+   double LineA_Price = ObjectGetDouble(0, LineA_Handle, OBJPROP_PRICE1);
+   
+   //--- calculate Line B and Line C prices
+   double LineB_Price = LineA_Price + LineB_Distance * Point;
+   double LineC_Price = LineA_Price - LineC_Distance * Point;
+   
+   //--- set Line B and Line C properties
+   ObjectSetDouble(0, LineB_Name, OBJPROP_PRICE1, LineB_Price);
+   ObjectSetDouble(0, LineC_Name, OBJPROP_PRICE1, LineC_Price);
+   
+   //--- set Line B and Line C buffers
+   ArrayInitialize(LineB_Buffer, 0);
+   ArrayInitialize(LineC_Buffer, 0);
+   for(int i = 0; i < rates_total; i++)
+   {
+      if(high[i] >= LineB_Price)
+         LineB_Buffer[i] = LineB_Price;
+      if(low[i] <= LineC_Price)
+         LineC_Buffer[i] = LineC_Price;
+   }
+   
+   return(rates_total);
+}
